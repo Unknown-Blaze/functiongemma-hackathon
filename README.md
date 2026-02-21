@@ -1,5 +1,39 @@
 <img src="assets/banner.png" alt="Logo" style="border-radius: 30px; width: 100%;">
 
+## Quick Run Guide
+
+From this repository root:
+
+1. Run local eval:
+
+```bash
+python benchmark.py
+```
+
+2. Submit to leaderboard:
+
+```bash
+python submit.py --team "YourTeam" --location "Singapore"
+```
+
+3. Run voice-to-action SPA:
+
+```bash
+python voice_web_server.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080
+```
+
+For backend transcription in the SPA, ensure Whisper weights exist:
+
+```bash
+cactus download openai/whisper-small --reconvert
+```
+
 ## Context
 - Cactus runs Google DeepMind's FunctionGemma at up to 3000 toks/sec prefill speed on M4 Macs.
 - While decode speed reaches 200 tokens/sec, all without GPU, to remain energy-efficient. 
@@ -57,18 +91,10 @@ response = json.loads(cactus_complete(model, messages))
 print(response["response"])
 
 cactus_destroy(model)
-```
 
 ## API Reference
-
-### `cactus_init(model_path, corpus_dir=None)`
-
-| Parameter | Type | Description |
 |-----------|------|-------------|
 | `model_path` | `str` | Path to model weights directory |
-| `corpus_dir` | `str` | (Optional) dir of txt/md files for auto-RAG |
-
-```python
 model = cactus_init("weights/lfm2-vl-450m")
 model = cactus_init("weights/lfm2-rag", corpus_dir="./documents")
 ```
@@ -241,3 +267,73 @@ for chunk in chunks:
 ## Next steps:
 - Join the [Reddit channel](https://www.reddit.com/r/cactuscompute/), ask any technical questions there.
 - To gain some technical insights on AI, checkout [Maths, CS & AI Compendium](https://github.com/HenryNdubuaku/maths-cs-ai-compendium). 
+
+## Simple Voice-to-Action Web Demo
+
+Run a minimal browser workflow that captures voice, routes transcript through `generate_hybrid`, and shows function calls/actions.
+
+1. Start server:
+
+```bash
+python voice_web_server.py
+```
+
+2. Open in browser:
+
+```text
+http://127.0.0.1:8080
+```
+
+3. Click **Start Listening**, speak, then **Run Text**.
+
+Notes:
+- Speech recognition uses the browser Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`).
+- If speech recognition is unavailable, type into the transcript box and click **Run Text**.
+- Backend voice transcription endpoint is `/api/transcribe_route` and uses `cactus_transcribe` with `weights/whisper-small`.
+- Ensure Whisper weights are downloaded first (e.g. `cactus download openai/whisper-small --reconvert`).
+
+## Submission Checklist (Recommended)
+
+Before final submission, quickly verify:
+
+1. `python benchmark.py` runs end-to-end with no crashes.
+2. `generate_hybrid` signature in `main.py` is unchanged.
+3. `python submit.py --team "YourTeam" --location "Singapore"` works from repo root.
+4. No local-only hacks are required for runtime (paths/env assumptions are robust).
+5. README reflects current behavior (especially UI controls and routing behavior).
+
+## 6-7 Minute Presentation Script
+
+Use this script for a longer final presentation.
+
+### 0:00 - 0:40 | Opening and problem framing
+"We built a hybrid voice-to-action assistant for the FunctionGemma x Cactus hackathon. The core problem is balancing three things at once: tool-call correctness, latency, and on-device ratio. Small models are fast and private on device, but difficult prompts can still need fallback strategies. So our work focused on a router that is robust, interpretable, and practical in a real demo UX."
+
+### 0:40 - 1:40 | Architecture overview
+"At a high level, there are two layers. First is the routing layer in `main.py`, centered on `generate_hybrid`. Second is a thin full-stack demo layer using `voice_web_server.py` and a SPA in `web/` so judges can see voice and text become executable actions in real time."
+
+"The key architectural decision is on-device-first routing with controlled fallback. We intentionally avoid blindly using cloud because leaderboard scoring values on-device behavior and latency."
+
+### 1:40 - 3:10 | Main technique: hybrid router in `main.py`
+"`generate_hybrid` follows a staged strategy. Stage one runs local FunctionGemma through Cactus and validates tool calls. Stage two applies a deterministic schema router as fallback when the model output is weak, empty, or underspecified. Stage three keeps cloud fallback available for truly low-confidence situations."
+
+"Two implementation details matter a lot here. First, schema-aware validation and normalization: required fields, type checks, integer coercion, and time canonicalization. That prevents malformed calls from being accepted. Second, merge + dedupe logic: we combine model and parser strengths so compound prompts are handled better and repeated calls are filtered."
+
+### 3:10 - 4:20 | Robustness and generalization choices
+"A major challenge in hidden evals is phrasing drift. We improved resilience with broader extraction patterns for timer/alarm/message/reminder/weather, plus fallback behavior that still returns best local attempts when confidence is decent. This reduces all-or-nothing failures."
+
+"We also hardened path/environment behavior, because submission environments may differ from local assumptions. That includes model path resolution and safer runtime handling so the app degrades gracefully instead of crashing."
+
+### 4:20 - 5:20 | UI demo walkthrough
+"In the web app, we click Start Listening, speak a command, and Run Text. The interface shows transcript, route metadata, function calls, workflow actions, and a clean assistant response."
+
+"For weather queries, we don’t stop at tool selection. The backend executes a real weather fetch via Open-Meteo and returns an actual natural-language weather answer. That makes the demo feel like a usable product rather than a raw tool-call inspector."
+
+### 5:20 - 6:20 | Why this is strong for judging
+"This approach scores well across both objective and qualitative axes. Objectively, it targets correctness with low latency and strong on-device usage. Qualitatively, it demonstrates system design: routing logic, confidence handling, fallback strategy, and an end-to-end interaction layer."
+
+"It is also explainable. Each stage has a clear purpose, clear acceptance criteria, and clear failure behavior. That makes it easy to defend technical choices under judging questions."
+
+### 6:20 - 7:00 | Closing
+"In summary, we built an edge-first hybrid assistant that is practical and demo-ready: robust routing in `main.py`, controlled fallback, schema-safe tool execution, and a clean voice-to-action frontend. The system is fast, resilient to phrasing variance, and easy to extend with new tools."
+

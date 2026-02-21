@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice to Action</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Voice → Action</h1>
+    <p class="subtitle">Speak a command, route it with your hybrid model, and view tool calls.</p>
+
+    <section class="card">
+      <div class="controls">
+        <button id="startBtn">🎤 Start Listening</button>
+        <button id="stopBtn" disabled>⏹ Stop</button>
+        <button id="runTextBtn">▶ Run Text</button>
+      </div>
+
+      <label for="transcript">Transcript</label>
+      <textarea id="transcript" rows="4" placeholder="Try: set an alarm for 7:30 AM and text Alex saying running late"></textarea>
+
+      <div id="status" class="status">Idle</div>
+    </section>
+
+    <section class="card">
+      <h2>Route Result</h2>
+      <div class="meta-row" id="metaRow">
+        <span class="chip" id="sourceChip">source: -</span>
+        <span class="chip" id="confidenceChip">confidence: -</span>
+        <span class="chip" id="timeChip">time: -</span>
+      </div>
+      <div class="answer" id="assistantResponse">No response yet.</div>
+      <details class="details-block">
+        <summary>Function Calls</summary>
+        <pre id="calls">[]</pre>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Workflow Actions</h2>
+      <ul id="actions"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

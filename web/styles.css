@@ -1,0 +1,145 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0b1020;
+  color: #e8ecff;
+}
+
+.container {
+  max-width: 840px;
+  margin: 32px auto;
+  padding: 0 16px 24px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  color: #b9c0e5;
+}
+
+.card {
+  background: #151b31;
+  border: 1px solid #2c355a;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #3f7cff;
+  color: white;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  color: #b9c0e5;
+}
+
+textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #34406f;
+  padding: 10px;
+  resize: vertical;
+  background: #0d1430;
+  color: #e8ecff;
+}
+
+.status {
+  margin-top: 10px;
+  color: #a8c9ff;
+  background: #0d1430;
+  border: 1px solid #2c355a;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.meta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #33406b;
+  background: #0d1430;
+  color: #c7d8ff;
+  font-size: 0.85rem;
+}
+
+.answer {
+  margin: 0 0 12px;
+  background: linear-gradient(180deg, #101938 0%, #0d1430 100%);
+  border: 1px solid #33406b;
+  border-radius: 10px;
+  padding: 14px;
+  color: #eef3ff;
+  line-height: 1.5;
+}
+
+.details-block {
+  border: 1px solid #2c355a;
+  border-radius: 10px;
+  padding: 10px;
+  background: #0d1430;
+}
+
+.details-block summary {
+  cursor: pointer;
+  color: #b9c0e5;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+pre {
+  margin: 6px 0 0;
+  background: #0d1430;
+  border: 1px solid #2c355a;
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+li {
+  margin: 6px 0;
+}

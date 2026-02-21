@@ -2,14 +2,34 @@ import sys
 from pathlib import Path
 import re
 import atexit
+import json, os, time
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CACTUS_PYTHON_SRC = REPO_ROOT / "cactus" / "python" / "src"
-FUNCTIONGEMMA_PATH = REPO_ROOT / "cactus" / "weights" / "functiongemma-270m-it"
+def _resolve_cactus_paths():
+    here = Path(__file__).resolve().parent
+    candidates = [
+        here,
+        here.parent,
+        Path.cwd(),
+    ]
+
+    for root in candidates:
+        cactus_src = root / "cactus" / "python" / "src"
+        weights_path = root / "cactus" / "weights" / "functiongemma-270m-it"
+        if cactus_src.exists() and weights_path.exists():
+            return root, cactus_src, weights_path
+
+    default_root = here.parent
+    return (
+        default_root,
+        default_root / "cactus" / "python" / "src",
+        default_root / "cactus" / "weights" / "functiongemma-270m-it",
+    )
+
+
+REPO_ROOT, CACTUS_PYTHON_SRC, FUNCTIONGEMMA_PATH = _resolve_cactus_paths()
 
 sys.path.insert(0, str(CACTUS_PYTHON_SRC))
 
-import json, os, time
 try:
     from cactus import cactus_init, cactus_complete, cactus_destroy
     _CACTUS_AVAILABLE = True
@@ -30,7 +50,19 @@ _STOPWORDS = {
 LOCAL_ACCEPT_CONFIDENCE = 0.50
 ROUTER_ACCEPT_CONFIDENCE = 0.58
 ROUTER_REPORTED_CONFIDENCE_FLOOR = 0.58
-DEFAULT_HYBRID_CONFIDENCE_THRESHOLD = 0.99
+DEFAULT_HYBRID_CONFIDENCE_THRESHOLD = 0.55
+
+
+def _is_truthy_env(var_name, default=False):
+    value = os.environ.get(var_name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _cloud_fallback_enabled():
+    """Cloud fallback stays available; env var can disable it for local-only experiments."""
+    return _is_truthy_env("ENABLE_CLOUD_FALLBACK", default=True)
 
 
 def _get_cactus_model():
@@ -38,7 +70,10 @@ def _get_cactus_model():
         return None
     global _CACTUS_MODEL
     if _CACTUS_MODEL is None:
-        _CACTUS_MODEL = cactus_init(str(FUNCTIONGEMMA_PATH))
+        try:
+            _CACTUS_MODEL = cactus_init(str(FUNCTIONGEMMA_PATH))
+        except Exception:
+            _CACTUS_MODEL = None
     return _CACTUS_MODEL
 
 
@@ -117,6 +152,18 @@ def _extract_time_string(clause):
     return m.group(1).upper() if m else ""
 
 
+def _canonicalize_time_string(value):
+    if not isinstance(value, str):
+        return value
+    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b", value, re.IGNORECASE)
+    if not m:
+        return value.strip().upper()
+    hour = int(m.group(1))
+    minute = int(m.group(2) or "0")
+    meridian = m.group(3).upper()
+    return f"{hour}:{minute:02d} {meridian}"
+
+
 def _extract_args_generic(clause, tool_name):
     args = {}
     lower = clause.lower()
@@ -125,6 +172,10 @@ def _extract_args_generic(clause, tool_name):
         m = re.search(r"\bin\s+([A-Za-z][A-Za-z\s\-']+)", clause, re.IGNORECASE)
         if m:
             args["location"] = _trim_segment(m.group(1))
+        elif "weather" in lower:
+            m2 = re.search(r"weather(?:\s+(?:in|for))?\s+([A-Za-z][A-Za-z\s\-']+)", clause, re.IGNORECASE)
+            if m2:
+                args["location"] = _trim_segment(m2.group(1))
 
     if "alarm" in tool_name:
         parsed = _parse_time_to_alarm(clause)
@@ -134,7 +185,7 @@ def _extract_args_generic(clause, tool_name):
             args["minute"] = minute
 
     if "timer" in tool_name:
-        m = re.search(r"(\d+)\s+minutes?", clause, re.IGNORECASE)
+        m = re.search(r"(\d+)\s*(?:minutes?|mins?|m)\b", clause, re.IGNORECASE)
         if m:
             args["minutes"] = int(m.group(1))
 
@@ -147,19 +198,39 @@ def _extract_args_generic(clause, tool_name):
         m1 = re.search(r"(?:to|text)\s+([A-Za-z][A-Za-z\-']+|him|her)", clause, re.IGNORECASE)
         if m1:
             args["recipient"] = m1.group(1)
+        else:
+            m1b = re.search(r"(?:message|send)\s+([A-Za-z][A-Za-z\-']+|him|her)\b", clause, re.IGNORECASE)
+            if m1b:
+                args["recipient"] = m1b.group(1)
         m2 = re.search(r"saying\s+(.+)$", clause, re.IGNORECASE)
         if m2:
             args["message"] = _trim_segment(m2.group(1))
+        else:
+            m2b = re.search(r"(?:message|text)\s+(?:to\s+)?[A-Za-z][A-Za-z\-']+\s+(.+)$", clause, re.IGNORECASE)
+            if m2b:
+                args["message"] = _trim_segment(m2b.group(1))
 
     if "reminder" in tool_name:
         m = re.search(r"remind\s+me\s+(?:about|to)\s+(.+?)\s+at\s+([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM|am|pm))", clause, re.IGNORECASE)
         if m:
             args["title"] = re.sub(r"^(the|a|an)\s+", "", _trim_segment(m.group(1)), flags=re.IGNORECASE)
-            args["time"] = m.group(2).strip().upper()
-        elif "time" in clause.lower():
+            args["time"] = _canonicalize_time_string(m.group(2))
+        else:
+            m_alt = re.search(r"(?:remind\s+me|set\s+(?:a\s+)?.*reminder)\s+(?:about|to|for)?\s*(.+?)\s+at\s+([0-9]{1,2}(?::[0-9]{2})?\s*(?:AM|PM|am|pm))", clause, re.IGNORECASE)
+            if m_alt:
+                args["title"] = re.sub(r"^(the|a|an)\s+", "", _trim_segment(m_alt.group(1)), flags=re.IGNORECASE)
+                args["time"] = _canonicalize_time_string(m_alt.group(2))
+
+        if "time" in clause.lower() or " at " in clause.lower():
             t = _extract_time_string(clause)
             if t:
-                args["time"] = t
+                args["time"] = _canonicalize_time_string(t)
+        if "title" not in args:
+            m_title = re.search(r"(?:remind\s+me|set\s+(?:a\s+)?.*reminder)\s+(?:about|to|for)?\s*(.+?)(?:\s+at\s+[0-9]{1,2}(?::[0-9]{2})?\s*(?:AM|PM|am|pm))?$", clause, re.IGNORECASE)
+            if m_title:
+                title = re.sub(r"^(the|a|an)\s+", "", _trim_segment(m_title.group(1)), flags=re.IGNORECASE)
+                if title:
+                    args["title"] = title
 
     if "music" in tool_name or "play" in tool_name:
         m_some = re.search(r"\bplay\s+some\s+(.+?)\s+music\b", clause, re.IGNORECASE)
@@ -283,12 +354,46 @@ def _validate_call_schema(call, tools):
 
     for key, val in args.items():
         expected_type = props.get(key, {}).get("type", "").lower()
-        if expected_type == "integer" and not isinstance(val, int):
-            return False
-        if expected_type == "string" and not isinstance(val, str):
-            return False
+        if expected_type == "integer":
+            if isinstance(val, bool):
+                return False
+            if isinstance(val, int):
+                pass
+            elif isinstance(val, float) and val.is_integer():
+                args[key] = int(val)
+            elif isinstance(val, str) and re.fullmatch(r"\s*\d+\s*", val):
+                args[key] = int(val.strip())
+            else:
+                return False
+        if expected_type == "string":
+            if not isinstance(val, str):
+                args[key] = str(val)
+            if key == "time":
+                args[key] = _canonicalize_time_string(args[key])
+            if not args[key].strip():
+                return False
 
     return True
+
+
+def _dedupe_calls(calls):
+    unique = []
+    seen = set()
+    for call in calls:
+        key = (call.get("name"), json.dumps(call.get("arguments", {}), sort_keys=True))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(call)
+    return unique
+
+
+def _merge_calls(primary_calls, secondary_calls, tools, max_calls=None):
+    merged = _dedupe_calls((primary_calls or []) + (secondary_calls or []))
+    valid = [c for c in merged if _validate_call_schema(c, tools)]
+    if max_calls is not None:
+        return valid[:max_calls]
+    return valid
 
 
 def _rule_confidence(messages, tools, calls):
@@ -379,7 +484,7 @@ def generate_cloud(messages, tools):
     start_time = time.time()
 
     gemini_response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-3-flash-preview",
         contents=contents,
         config=types.GenerateContentConfig(tools=gemini_tools),
     )
@@ -404,20 +509,24 @@ def generate_cloud(messages, tools):
 def generate_hybrid(messages, tools, confidence_threshold=DEFAULT_HYBRID_CONFIDENCE_THRESHOLD):
     """Model-first hybrid router with deterministic fallback and optional cloud escalation."""
     start = time.time()
+    user_text = " ".join(m.get("content", "") for m in messages if m.get("role") == "user").strip()
+    available_tools = {t["name"] for t in tools}
+    intent_count = _estimate_intent_count(user_text, available_tools)
 
     # 1) Try local model first; accept when schema-valid with strong confidence.
     local = generate_cactus(messages, tools)
     local_calls = [c for c in local.get("function_calls", []) if _validate_call_schema(c, tools)]
     local_conf = _rule_confidence(messages, tools, local_calls)
+    parsed_calls = _extract_calls_schema_router(messages, tools)
+    parsed_conf = _rule_confidence(messages, tools, parsed_calls)
+    merged_local_calls = _merge_calls(local_calls, parsed_calls, tools, max_calls=max(1, intent_count + 1))
 
     if local_calls and (local_conf >= LOCAL_ACCEPT_CONFIDENCE or local.get("confidence", 0) >= LOCAL_ACCEPT_CONFIDENCE):
-        local["function_calls"] = local_calls
+        local["function_calls"] = merged_local_calls
         local["source"] = "on-device"
         return local
 
     # 2) Fallback to generic schema router when model output is weak/empty.
-    parsed_calls = _extract_calls_schema_router(messages, tools)
-    parsed_conf = _rule_confidence(messages, tools, parsed_calls)
     if parsed_calls and parsed_conf >= ROUTER_ACCEPT_CONFIDENCE:
         return {
             "function_calls": parsed_calls,
@@ -426,20 +535,28 @@ def generate_hybrid(messages, tools, confidence_threshold=DEFAULT_HYBRID_CONFIDE
             "source": "on-device",
         }
 
-    # 3) If still uncertain, either stay local (no cloud key) or escalate to Gemini.
-    if local.get("confidence", 0) >= confidence_threshold:
-        local["function_calls"] = local_calls
-        local["source"] = "on-device"
-        return local
+    # 3) If still uncertain, keep best local attempt unless confidence is very low.
+    best_on_device_calls = _merge_calls(local_calls, parsed_calls, tools, max_calls=max(1, intent_count + 1))
+    best_on_device_conf = max(local.get("confidence", 0), local_conf, parsed_conf)
+    if best_on_device_calls and best_on_device_conf >= confidence_threshold:
+        return {
+            "function_calls": best_on_device_calls,
+            "total_time_ms": local.get("total_time_ms", 0),
+            "confidence": max(ROUTER_REPORTED_CONFIDENCE_FLOOR, best_on_device_conf),
+            "source": "on-device",
+        }
 
-    if not os.environ.get("GEMINI_API_KEY"):
-        local["function_calls"] = local_calls
-        local["source"] = "on-device"
-        return local
+    if not _cloud_fallback_enabled() or not os.environ.get("GEMINI_API_KEY"):
+        return {
+            "function_calls": best_on_device_calls,
+            "total_time_ms": local.get("total_time_ms", 0),
+            "confidence": best_on_device_conf,
+            "source": "on-device",
+        }
 
     cloud = generate_cloud(messages, tools)
     cloud["source"] = "cloud (fallback)"
-    cloud["local_confidence"] = local.get("confidence", 0)
+    cloud["local_confidence"] = best_on_device_conf
     cloud["total_time_ms"] += local.get("total_time_ms", 0)
     return cloud
 
