@@ -2,6 +2,8 @@
 
 **Document Purpose**: Full line-by-line explanation of `main.py` for understanding, live demo preparation, and judging defense.
 
+Explanation Document: https://docs.google.com/document/d/1fffZejJ8XaPDakSoqIOXBrz-u-CdRXswwgYl7AwfYwA/edit?usp=sharing
+
 ---
 
 ## Table of Contents
@@ -1186,4 +1188,5 @@ A: Heuristic, not arbitrary. Formula is: schema_ratio (50%) + coverage (35%) + p
 - Why 0.72 < 0.78 < 0.90 (threshold progression; LLM more capable than heuristic).
 - Why stress benchmark matters (paraphrase generalization).
 - Why schema validation critical (prevents F1 failures).
+
 
