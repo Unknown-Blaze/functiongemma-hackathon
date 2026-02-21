@@ -1,6 +1,7 @@
 <img src="assets/banner.png" alt="Logo" style="border-radius: 30px; width: 100%;">
 
 Team Name: Native Hackers
+
 Explanation Doc: https://docs.google.com/document/d/1fffZejJ8XaPDakSoqIOXBrz-u-CdRXswwgYl7AwfYwA/edit?usp=sharing
 
 ## Quick Run Guide
