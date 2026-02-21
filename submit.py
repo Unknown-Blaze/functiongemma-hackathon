@@ -18,19 +18,28 @@ def submit(team, location):
     print(f"  Submitting main.py for team '{team}' ({location})")
     print("=" * 60)
 
-    with open("main.py", "rb") as f:
-        resp = requests.post(
-            f"{SERVER_URL}/eval/submit",
-            data={"team": team, "location": location},
-            files={"file": ("main.py", f, "text/x-python")},
-            headers=HEADERS,
-        )
+    try:
+        with open("main.py", "rb") as f:
+            resp = requests.post(
+                f"{SERVER_URL}/eval/submit",
+                data={"team": team, "location": location},
+                files={"file": ("main.py", f, "text/x-python")},
+                headers=HEADERS,
+                timeout=15,
+            )
+    except requests.exceptions.ConnectionError:
+        print("The Leaderboard is not accepting submissions at this time.")
+        return
+    except requests.exceptions.Timeout:
+        print("The Leaderboard is not accepting submissions at this time.")
+        return
 
     if resp.status_code != 200:
         try:
             msg = resp.json().get("error", resp.text)
-        except requests.exceptions.JSONDecodeError:
-            msg = resp.text[:200]
+        except (requests.exceptions.JSONDecodeError, ValueError):
+            print("The Leaderboard is not accepting submissions at this time.")
+            return
         print(f"Error: {msg}")
         return
 

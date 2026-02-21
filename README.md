@@ -17,21 +17,22 @@
 ## Setup (clone this repo and hollistically follow)
 - Step 1: Fork this repo, clone to your Mac, open terminal.
 - Step 2: `git clone https://github.com/cactus-compute/cactus`
-- Step 3: `cd cactus && source ./setup && cd ..`
+- Step 3: `cd cactus && source ./setup && cd ..` (re-run in new terminal)
 - Step 4: `cactus build --python`
 - Step 5: `cactus download google/functiongemma-270m-it --reconvert`
 - Step 6: Get cactus key from the [cactus website](https://cactuscompute.com/dashboard/api-keys)
 - Sept 7: Run `cactus auth` and enter your token when prompted.
 - Step 8: `pip install google-genai`
 - Step 9: Obtain Gemini API key from [Google AI Studio](https://aistudio.google.com/api-keys)
-- Step 10: `export GEMINI_API_KEY="your-api-key-here"`
-- Step 11: Join the [Reddit channel](https://www.reddit.com/r/cactuscompute/), ask any technical questions there.
-- Step 12: read and run `python main.py`, you will modify `generate_hybrid` without breaking the interface.
+- Step 10: `export GEMINI_API_KEY="your-key"`
+- Step 11: Click on location to get Gemini credits - [SF](https://trygcp.dev/claim/cactus-x-gdm-hackathon-sf), [Boston](https://trygcp.dev/claim/cactus-x-gdm-hackathon-boston), [DC](https://trygcp.dev/claim/cactus-x-gdm-hackathon-dc), [London](https://trygcp.dev/claim/cactus-x-gdm-hackathon-london), [Singapore](https://trygcp.dev/claim/cactus-x-gdm-hackathon), [Online](https://trygcp.dev/claim/cactus-x-gdm-hackathon-online)
+- Step 12: Join the [Reddit channel](https://www.reddit.com/r/cactuscompute/), ask any technical questions there.
 - Step 13: read and run `python benchmark.py` to understand how objective scoring works.
 - Note: Final objective score will be done on held-out evals, top 10 are then judged subjectively.
 
 ## Submissions
-- Do not modify the `generate_hybrid` keep the hybrid interface compatible with benchmark.py.
+- Your main task is to modify the **internal logic** of the `generate_hybrid` method in `main.py`. 
+- Do not modify the input or output signature (function arguments and return variables) of the `generate_hybrid` method. Keep the hybrid interface compatible with `benchmark.py`.
 - Submit to the leaderboard `python submit.py --team "YourTeamName" --location "YourCity"`, only 1x every 1hr.
 - The dataset is a hidden Cactus eval, quite difficult for FunctionGemma by design.
 - Use `python benchmark.py` to iterate, but your best score is preserved.
