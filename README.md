@@ -1,4 +1,34 @@
+# functiongemma-hackathon
+
+Hybrid edge/cloud router for tool calling: Google's FunctionGemma 270M runs on-device through Cactus and hands off to Gemini Flash only when needed, plus a voice-to-action web demo. National Top 10, Cactus x Google Global Hackathon.
+
+![Python](https://img.shields.io/badge/Python-3-3776AB?style=flat-square&logo=python&logoColor=white)
+![FunctionGemma](https://img.shields.io/badge/FunctionGemma-270M-4285F4?style=flat-square&logo=google&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-Flash%20fallback-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+![Whisper](https://img.shields.io/badge/Whisper-small-412991?style=flat-square)
+![Placing](https://img.shields.io/badge/National%20Top%2010-Cactus%20x%20Google%20Global%20Hackathon-FFB000?style=flat-square)
+
 <img src="assets/banner.png" alt="Logo" style="border-radius: 30px; width: 100%;">
+
+## What it does
+
+The challenge (described further down, from the organisers' template) was to rewrite `generate_hybrid` in [`main.py`](main.py) so that tool calls are correct, fast and kept on the device as often as possible. Our router is model-first: FunctionGemma runs locally and its calls are kept only if they validate against the tool schemas with high confidence; otherwise a rule-based schema router splits the request into clauses and matches each against the tool definitions; if both are uncertain, the best on-device answer is still returned when it clears the confidence threshold, and only below that does the request go to Gemini Flash in the cloud. [`explanation.md`](explanation.md) walks through the design line by line. [`voice_web_server.py`](voice_web_server.py) and [`web/`](web) add a browser demo that turns speech (Web Speech API, or Whisper through `cactus_transcribe`) into executed function calls.
+
+## Tech
+
+Python, [Cactus](https://github.com/cactus-compute/cactus) on-device runtime, FunctionGemma 270M, Whisper small, Google Gen AI SDK (Gemini Flash), plain HTML/CSS/JS for the demo.
+
+## Run
+
+Cactus runs on Apple silicon Macs. Follow the organisers' [Setup](#setup-clone-this-repo-and-hollistically-follow) below to build Cactus and download `google/functiongemma-270m-it`, then:
+
+```bash
+pip install google-genai
+export GEMINI_API_KEY="your-key"           # optional; ENABLE_CLOUD_FALLBACK=0 keeps everything local
+python benchmark.py                        # objective score: correctness, latency, on-device ratio
+python local_stress_benchmark.py           # the same cases with perturbed wording
+python voice_web_server.py                 # demo on http://127.0.0.1:8080
+```
 
 Team Name: Native Hackers
 
